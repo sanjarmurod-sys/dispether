@@ -7,7 +7,6 @@ import org.apache.poi.ss.usermodel.WorkbookFactory
 
 class ExcelManager(private val filePath: String) {
 
-    // KAMK faylidagi piketlarning ustun tartib indeksi
     private val picketColumnMap = mapOf(
         "PK 66" to 2,   // Col C: H, Col D: Q
         "PK 287" to 4,  // Col E: H, Col F: Q
@@ -37,20 +36,17 @@ class ExcelManager(private val filePath: String) {
                 sheet = workbook.createSheet(sheetName)
             }
 
-            // 1..24 soatlik qatorlar 3-qatordan boshlanadi (Row Index = 2 + hour)
             val rowIndex = 2 + hour
             var row = sheet.getRow(rowIndex)
             if (row == null) {
                 row = sheet.createRow(rowIndex)
             }
 
-            // H reykani katakka yozish
             if (hVal != null) {
                 val cellH = row.getCell(colIndex) ?: row.createCell(colIndex)
                 cellH.setCellValue(hVal)
             }
 
-            // Q sarf (kub) katakka yozish
             if (qVal != null) {
                 val cellQ = row.getCell(colIndex + 1) ?: row.createCell(colIndex + 1)
                 cellQ.setCellValue(qVal)

@@ -6,4 +6,4 @@ Katta Andijon Magistral Kanali (KAMK) chegara gidropostlarida soatlik suv o'lcho
 - 🎙 **AI Ovozli Dispetcher:** Nutqni tushunib, soat va piketlar bo'yicha H va Q ko'rsatkichlarini avtomatik ajratib oladi.
 - 📊 **Excel (XLSX) Integratsiya:** Ma'lumotlarni kunlik va soatlik shablon jadvalga avtomatik joylashtiradi.
 - 🤖 **Telegram Bot Avto-Hisobot:** Har 2 soatda eng so'nggi Excel hisobotini Telegram guruhga joylashtirib boradi.
-- 🔐 **Dispetcher Shaxsiy Kabineti:** Har bir dispetcherning kiritgan ma'lumotlari auditi saqlanadi.
+- ⚡ **GitHub Actions Avto-Build:** Android Studio'siz, GitHub'ning o'zi APK yig'ib beradi.
