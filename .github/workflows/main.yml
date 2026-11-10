@@ -21,18 +21,21 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Fix Directory Structure (Move from DispetherApp if exists)
+      run: |
+        if [ -d "DispetherApp" ]; then
+          cp -r DispetherApp/* .
+          cp -r DispetherApp/.* . 2>/dev/null || true
+        fi
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Grant execution permission for gradlew
+    - name: Generate Gradle Wrapper & Build APK
       run: |
-        if [ ! -f "./gradlew" ]; then
-          gradle wrapper
-        fi
+        gradle wrapper --gradle-version 8.7
         chmod +x gradlew
-
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug --stacktrace
+        ./gradlew assembleDebug --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
