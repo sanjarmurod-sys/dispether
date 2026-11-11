@@ -1,0 +1,39 @@
+name: Android CI Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build with Gradle
+      run: |
+        if [ -d "DispetherApp" ]; then
+          cp -r DispetherApp/* . 2>/dev/null || true
+        fi
+        if [ -d "Dispether" ]; then
+          cp -r Dispether/* . 2>/dev/null || true
+        fi
+        gradle wrapper --gradle-version 8.2
+        chmod +x gradlew
+        ./gradlew assembleDebug --stacktrace
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: Dispether-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
