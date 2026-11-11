@@ -1,0 +1,226 @@
+name: Build Dispether APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Generate Android Project Code & Structure
+      run: |
+        rm -rf app settings.gradle* build.gradle* gradle*
+        mkdir -p app/src/main/java/com/water/dispatcher/ai
+        mkdir -p app/src/main/java/com/water/dispatcher/excel
+        mkdir -p app/src/main/java/com/water/dispatcher/worker
+        mkdir -p app/src/main/java/com/water/dispatcher/ui
+        mkdir -p app/src/main/res/values
+
+        # 1. settings.gradle.kts
+        cat << 'EOF' > settings.gradle.kts
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "Dispether"
+        include(":app")
+        EOF
+
+        # 2. build.gradle.kts (Root)
+        cat << 'EOF' > build.gradle.kts
+        plugins {
+            id("com.android.application") version "8.2.2" apply false
+            id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+        }
+        EOF
+
+        # 3. app/build.gradle.kts
+        cat << 'EOF' > app/build.gradle.kts
+        plugins {
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android")
+        }
+
+        android {
+            namespace = "com.water.dispatcher"
+            compileSdk = 34
+
+            defaultConfig {
+                applicationId = "com.water.dispatcher"
+                minSdk = 24
+                targetSdk = 34
+                versionCode = 1
+                versionName = "1.0"
+            }
+
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+            buildFeatures {
+                compose = true
+            }
+            composeOptions {
+                kotlinCompilerExtensionVersion = "1.5.8"
+            }
+        }
+
+        dependencies {
+            implementation("androidx.core:core-ktx:1.12.0")
+            implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+            implementation("androidx.activity:activity-compose:1.8.2")
+            implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+            implementation("androidx.compose.ui:ui")
+            implementation("androidx.compose.ui:ui-graphics")
+            implementation("androidx.compose.ui:ui-tooling-preview")
+            implementation("androidx.compose.material3:material3")
+            implementation("org.apache.poi:poi-ooxml:5.2.5")
+            implementation("com.squareup.okhttp3:okhttp:4.12.0")
+            implementation("androidx.work:work-runtime-ktx:2.9.0")
+        }
+        EOF
+
+        # 4. AndroidManifest.xml
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.RECORD_AUDIO" />
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+            <application
+                android:allowBackup="true"
+                android:label="KAMK AI Dispetcher"
+                android:theme="@android:style/Theme.Material.NoActionBar">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # 5. MainActivity.kt
+        cat << 'EOF' > app/src/main/java/com/water/dispatcher/MainActivity.kt
+        package com.water.dispatcher
+
+        import android.os.Bundle
+        import androidx.activity.ComponentActivity
+        import androidx.activity.compose.setContent
+        import androidx.compose.foundation.layout.fillMaxSize
+        import androidx.compose.material3.MaterialTheme
+        import androidx.compose.material3.Surface
+        import androidx.compose.ui.Modifier
+        import com.water.dispatcher.ui.DispatcherDashboardScreen
+
+        class MainActivity : ComponentActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                setContent {
+                    MaterialTheme {
+                        Surface(modifier = Modifier.fillMaxSize()) {
+                            DispatcherDashboardScreen("Sanjar Murod", {}, "", {})
+                        }
+                    }
+                }
+            }
+        }
+        EOF
+
+        # 6. VoiceNluParser.kt
+        cat << 'EOF' > app/src/main/java/com/water/dispatcher/ai/VoiceNluParser.kt
+        package com.water.dispatcher.ai
+        import java.util.regex.Pattern
+
+        data class WaterReadingIntent(val hour: Int?, val picketCode: String?, val hLevel: Double?, val qVolume: Double?, val rawText: String)
+
+        class VoiceNluParser {
+            fun parseSpeech(text: String): WaterReadingIntent {
+                val lower = text.lowercase()
+                var hour: Int? = null
+                val hm = Pattern.compile("(?:soat\\s*(\\d{1,2})|(\\d{1,2})\\s*soat)").matcher(lower)
+                if (hm.find()) hour = (hm.group(1) ?: hm.group(2))?.toIntOrNull()
+                
+                var picket: String? = null
+                val pm = Pattern.compile("(?:pk|piket)\\s*(\\d{2,3})").matcher(lower)
+                if (pm.find()) picket = "PK " + pm.group(1)
+
+                var h: Double? = null
+                val hm2 = Pattern.compile("(?:h|reyka)\\s*(\\d+(?:[.,]\\d+)?)").matcher(lower)
+                if (hm2.find()) h = hm2.group(1)?.replace(',', '.')?.toDoubleOrNull()
+
+                var q: Double? = null
+                val qm = Pattern.compile("(?:q|kub|sarf)\\s*(\\d+(?:[.,]\\d+)?)").matcher(lower)
+                if (qm.find()) q = qm.group(1)?.replace(',', '.')?.toDoubleOrNull()
+
+                return WaterReadingIntent(hour, picket, h, q, text)
+            }
+        }
+        EOF
+
+        # 7. DispatcherScreen.kt
+        cat << 'EOF' > app/src/main/java/com/water/dispatcher/ui/DispatcherScreen.kt
+        package com.water.dispatcher.ui
+        import androidx.compose.foundation.layout.*
+        import androidx.compose.material3.*
+        import androidx.compose.runtime.*
+        import androidx.compose.ui.Alignment
+        import androidx.compose.ui.Modifier
+        import androidx.compose.ui.unit.dp
+
+        @Composable
+        fun DispatcherDashboardScreen(dispatcherName: String, onSpeech: () -> Unit, result: String, onSave: () -> Unit) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Mas'ul dispetcher: $dispatcherName", style = MaterialTheme.typography.titleMedium)
+                        Text("Tizim holati: Telegram Avto-yuborish faol", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(onClick = onSpeech, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                    Text("🎤 Ovozli Kiritishni Boshlash")
+                }
+            }
+        }
+        EOF
+
+    - name: Build Debug APK via Gradle
+      run: |
+        gradle wrapper --gradle-version 8.2
+        chmod +x gradlew
+        ./gradlew assembleDebug --stacktrace
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Dispether-AI-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
